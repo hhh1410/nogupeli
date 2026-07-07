@@ -115,7 +115,10 @@
     // ---- Configuration ----
     const GRID_SIZE = 20;           // size of each cell in pixels
     const TILE_COUNT = 20;          // number of cells per row/column (400 / 20)
-    const GAME_SPEED_MS = 120;      // milliseconds between game ticks
+    const MOVE_INTERVAL_MS = 120;   // time between logical moves (controls game speed)
+    // Rendering itself runs every animation frame (~60 fps). The snake's
+    // position is interpolated between moves so motion looks smooth instead
+    // of jumping one whole cell at a time.
 
     // ---- DOM references ----
     const canvas = document.getElementById('game-canvas');
@@ -126,7 +129,11 @@
     const restartBtn = document.getElementById('restart-btn');
 
     // ---- Game state ----
-    let snake, direction, nextDirection, food, score, gameLoopId, isGameOver;
+    // prevSnake holds the snake's cells from before the last move; it is used
+    // to interpolate positions while rendering. lastMoveTime marks when the
+    // most recent logical move happened, and rafId is the animation-frame handle.
+    let snake, prevSnake, direction, nextDirection, food, score,
+        isGameOver, lastMoveTime, rafId;
 
     // Sets (or resets) all game state to start a fresh game
     function initGame() {
@@ -135,6 +142,7 @@
         { x: 9, y: 10 },
         { x: 8, y: 10 }
       ];
+      prevSnake = snake.map(s => ({ x: s.x, y: s.y }));
       direction = { x: 1, y: 0 };
       nextDirection = { x: 1, y: 0 };
       score = 0;
@@ -145,8 +153,10 @@
 
       placeFood();
 
-      if (gameLoopId) clearInterval(gameLoopId);
-      gameLoopId = setInterval(tick, GAME_SPEED_MS);
+      // Start the render loop fresh.
+      if (rafId) cancelAnimationFrame(rafId);
+      lastMoveTime = performance.now();
+      rafId = requestAnimationFrame(loop);
     }
 
     // Places food at a random cell that isn't currently occupied by the snake
@@ -162,9 +172,36 @@
       food = position;
     }
 
-    // Runs one step of the game: move, check collisions, draw
-    function tick() {
+    // The main render loop. Runs on every animation frame (~60 fps): it
+    // advances the game logic whenever enough time has elapsed and always
+    // redraws using an interpolated position for smooth motion.
+    function loop(timestamp) {
+      if (isGameOver) return;
+
+      const elapsed = timestamp - lastMoveTime;
+      if (elapsed >= MOVE_INTERVAL_MS) {
+        // Keep the leftover time so moves stay evenly spaced.
+        lastMoveTime = timestamp - (elapsed % MOVE_INTERVAL_MS);
+        step();
+        if (isGameOver) {
+          draw(1); // draw the final resting position
+          return;
+        }
+      }
+
+      // How far we are (0..1) between the previous move and the next one.
+      const alpha = Math.min((timestamp - lastMoveTime) / MOVE_INTERVAL_MS, 1);
+      draw(alpha);
+      rafId = requestAnimationFrame(loop);
+    }
+
+    // Advances the game by one logical step: moves the snake, checks
+    // collisions, and handles eating food.
+    function step() {
       direction = nextDirection;
+
+      // Remember where every segment was so we can interpolate toward the new spot.
+      prevSnake = snake.map(s => ({ x: s.x, y: s.y }));
 
       const head = {
         x: snake[0].x + direction.x,
@@ -191,29 +228,33 @@
       } else {
         snake.pop(); // remove tail if no food was eaten (keeps length constant)
       }
-
-      draw();
     }
 
-    // Renders the snake and food onto the canvas
-    function draw() {
+    // Renders the snake and food. `alpha` (0..1) is how far the snake has
+    // progressed toward its next cell, used to interpolate for smooth motion.
+    function draw(alpha) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Draw food
       ctx.fillStyle = '#ff5252';
       ctx.fillRect(food.x * GRID_SIZE, food.y * GRID_SIZE, GRID_SIZE - 1, GRID_SIZE - 1);
 
-      // Draw snake (head in a brighter shade)
+      // Draw snake (head in a brighter shade), interpolating each segment
+      // between its previous cell and its current one.
       snake.forEach((segment, index) => {
+        const from = prevSnake[index] || segment; // new tail segment has no prior spot
+        const x = from.x + (segment.x - from.x) * alpha;
+        const y = from.y + (segment.y - from.y) * alpha;
+
         ctx.fillStyle = index === 0 ? '#81c784' : '#4caf50';
-        ctx.fillRect(segment.x * GRID_SIZE, segment.y * GRID_SIZE, GRID_SIZE - 1, GRID_SIZE - 1);
+        ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE - 1, GRID_SIZE - 1);
       });
     }
 
     // Stops the game loop and shows the game-over overlay
     function endGame() {
       isGameOver = true;
-      clearInterval(gameLoopId);
+      if (rafId) cancelAnimationFrame(rafId);
       finalScoreEl.textContent = `Score: ${score}`;
       gameOverScreen.style.display = 'flex';
     }
