@@ -120,6 +120,10 @@
     // position is interpolated between moves so motion looks smooth instead
     // of jumping one whole cell at a time.
 
+    // The drink that appears next is picked at random from this list each
+    // time food is placed.
+    const FOOD_TYPES = ['beer', 'wine', 'cocktail', 'whiskey'];
+
     // ---- DOM references ----
     const canvas = document.getElementById('game-canvas');
     const ctx = canvas.getContext('2d');
@@ -163,16 +167,20 @@
       rafId = requestAnimationFrame(loop);
     }
 
-    // Places food at a random cell that isn't currently occupied by the snake
+    // Places food at a random cell that isn't currently occupied by the
+    // snake, and picks which drink it will be. The outermost ring of cells
+    // is avoided so the (now double-sized) food art never gets clipped by
+    // the canvas edge.
     function placeFood() {
       let position;
       do {
         position = {
-          x: Math.floor(Math.random() * TILE_COUNT),
-          y: Math.floor(Math.random() * TILE_COUNT)
+          x: 1 + Math.floor(Math.random() * (TILE_COUNT - 2)),
+          y: 1 + Math.floor(Math.random() * (TILE_COUNT - 2))
         };
       } while (snake.some(segment => segment.x === position.x && segment.y === position.y));
 
+      position.type = FOOD_TYPES[Math.floor(Math.random() * FOOD_TYPES.length)];
       food = position;
     }
 
@@ -259,13 +267,26 @@
       });
     }
 
-    // Draws the food as a pint of beer: an amber glass with foam on top
-    // and a handle on the side.
+    // Draws the current food item (one of four alcoholic drinks), centered
+    // on its grid cell at double the original size.
     function drawFood() {
-      const size = GRID_SIZE - 1;
-      const px = food.x * GRID_SIZE;
-      const py = food.y * GRID_SIZE;
+      const size = (GRID_SIZE - 1) * 2;
+      const centerX = food.x * GRID_SIZE + GRID_SIZE / 2;
+      const centerY = food.y * GRID_SIZE + GRID_SIZE / 2;
+      const px = centerX - size / 2;
+      const py = centerY - size / 2;
 
+      switch (food.type) {
+        case 'wine':     drawWineGlass(px, py, size); break;
+        case 'cocktail': drawCocktailGlass(px, py, size); break;
+        case 'whiskey':  drawWhiskeyGlass(px, py, size); break;
+        case 'beer':
+        default:         drawBeerMug(px, py, size); break;
+      }
+    }
+
+    // A pint of beer: an amber glass with foam on top and a handle on the side.
+    function drawBeerMug(px, py, size) {
       const glassLeft = px + size * 0.22;
       const glassRight = px + size * 0.68;
       const glassTop = py + size * 0.38;
@@ -297,6 +318,110 @@
       ctx.beginPath();
       ctx.ellipse(glassLeft + glassWidth / 2, glassTop, glassWidth / 2, size * 0.14, 0, 0, Math.PI * 2);
       ctx.fill();
+    }
+
+    // A glass of red wine: a curved bowl of wine on a thin stem and base.
+    function drawWineGlass(px, py, size) {
+      const centerX = px + size / 2;
+      const bowlTop = py + size * 0.16;
+      const bowlBottom = py + size * 0.52;
+      const bowlWidth = size * 0.5;
+      const stemBottom = py + size * 0.84;
+      const baseY = py + size * 0.9;
+      const baseWidth = size * 0.34;
+
+      // Wine-filled bowl
+      ctx.fillStyle = '#7b1e3a';
+      ctx.beginPath();
+      ctx.moveTo(centerX - bowlWidth / 2, bowlTop);
+      ctx.quadraticCurveTo(centerX - bowlWidth / 2, bowlBottom, centerX, bowlBottom + size * 0.04);
+      ctx.quadraticCurveTo(centerX + bowlWidth / 2, bowlBottom, centerX + bowlWidth / 2, bowlTop);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = '#f3e9e9';
+      ctx.lineWidth = Math.max(1, size * 0.04);
+      ctx.stroke();
+
+      // Stem
+      ctx.beginPath();
+      ctx.moveTo(centerX, bowlBottom + size * 0.04);
+      ctx.lineTo(centerX, stemBottom);
+      ctx.stroke();
+
+      // Base
+      ctx.beginPath();
+      ctx.ellipse(centerX, baseY, baseWidth / 2, size * 0.03, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // A martini-style cocktail: a triangular glass with an olive garnish.
+    function drawCocktailGlass(px, py, size) {
+      const centerX = px + size / 2;
+      const rimY = py + size * 0.2;
+      const rimWidth = size * 0.56;
+      const apexY = py + size * 0.5;
+      const stemBottom = py + size * 0.82;
+      const baseY = py + size * 0.9;
+      const baseWidth = size * 0.32;
+
+      // Cocktail (cone of liquid)
+      ctx.fillStyle = '#c7e35c';
+      ctx.beginPath();
+      ctx.moveTo(centerX - rimWidth / 2, rimY);
+      ctx.lineTo(centerX + rimWidth / 2, rimY);
+      ctx.lineTo(centerX, apexY);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = '#f3f3f3';
+      ctx.lineWidth = Math.max(1, size * 0.04);
+      ctx.stroke();
+
+      // Stem
+      ctx.beginPath();
+      ctx.moveTo(centerX, apexY);
+      ctx.lineTo(centerX, stemBottom);
+      ctx.stroke();
+
+      // Base
+      ctx.beginPath();
+      ctx.ellipse(centerX, baseY, baseWidth / 2, size * 0.03, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Olive garnish
+      ctx.fillStyle = '#6b8e23';
+      ctx.beginPath();
+      ctx.arc(centerX + rimWidth * 0.18, rimY - size * 0.03, size * 0.07, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // A glass of whiskey on the rocks: a short tumbler with an ice cube.
+    function drawWhiskeyGlass(px, py, size) {
+      const glassLeft = px + size * 0.26;
+      const glassRight = px + size * 0.74;
+      const glassTop = py + size * 0.52;
+      const glassBottom = py + size * 0.88;
+      const glassWidth = glassRight - glassLeft;
+
+      // Whiskey
+      ctx.fillStyle = '#b5651d';
+      ctx.fillRect(glassLeft, glassTop, glassWidth, glassBottom - glassTop);
+
+      // Glass outline
+      ctx.strokeStyle = '#f5ecd7';
+      ctx.lineWidth = Math.max(1, size * 0.04);
+      ctx.strokeRect(glassLeft, glassTop, glassWidth, glassBottom - glassTop);
+
+      // Ice cube
+      const cubeSize = size * 0.18;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.fillRect(
+        glassLeft + glassWidth * 0.15,
+        glassTop + (glassBottom - glassTop) * 0.2,
+        cubeSize,
+        cubeSize
+      );
     }
 
     // Draws the snake's head as a rounded, smiling face oriented toward
