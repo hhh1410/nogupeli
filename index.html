@@ -330,8 +330,8 @@
       canvas.style.transform = `translate(${swayX}px, ${swayY}px) rotate(${rot}deg)`;
     }
 
-    // Advances the game by one logical step: moves the snake, checks
-    // collisions, and handles eating food.
+    // Advances the game by one logical step: moves the snake (wrapping around
+    // the edges) and handles eating food.
     function step() {
       if (directionQueue.length > 0) {
         direction = directionQueue.shift();
@@ -341,19 +341,9 @@
       prevSnake = snake.map(s => ({ x: s.x, y: s.y }));
 
       const head = {
-        x: snake[0].x + direction.x,
-        y: snake[0].y + direction.y
+        x: (snake[0].x + direction.x + TILE_COUNT) % TILE_COUNT,
+        y: (snake[0].y + direction.y + TILE_COUNT) % TILE_COUNT
       };
-
-      // Wall collision
-      if (head.x < 0 || head.x >= TILE_COUNT || head.y < 0 || head.y >= TILE_COUNT) {
-        return endGame();
-      }
-
-      // Self collision
-      if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
-        return endGame();
-      }
 
       snake.unshift(head);
 
@@ -385,17 +375,27 @@
       for (let index = 1; index < snake.length; index++) {
         const segment = snake[index];
         const from = prevSnake[index] || segment; // new tail segment has no prior spot
-        const x = from.x + (segment.x - from.x) * alpha;
-        const y = from.y + (segment.y - from.y) * alpha;
+        const x = from.x + wrapDelta(from.x, segment.x, TILE_COUNT) * alpha;
+        const y = from.y + wrapDelta(from.y, segment.y, TILE_COUNT) * alpha;
         ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE - 1, GRID_SIZE - 1);
       }
 
       // Draw the (larger) photo head last so it always sits on top of the body.
       const head = snake[0];
       const headFrom = prevSnake[0] || head;
-      const hx = headFrom.x + (head.x - headFrom.x) * alpha;
-      const hy = headFrom.y + (head.y - headFrom.y) * alpha;
+      const hx = headFrom.x + wrapDelta(headFrom.x, head.x, TILE_COUNT) * alpha;
+      const hy = headFrom.y + wrapDelta(headFrom.y, head.y, TILE_COUNT) * alpha;
       drawHead(hx, hy);
+    }
+
+    // Shortest signed distance from `from` to `to` on a wrapping axis of the
+    // given size, so interpolation slides off one edge instead of streaking
+    // across the whole board when the snake wraps around.
+    function wrapDelta(from, to, size) {
+      let diff = to - from;
+      if (diff > size / 2) diff -= size;
+      else if (diff < -size / 2) diff += size;
+      return diff;
     }
 
     // Draws the current food item (one of three alcoholic drinks), centered
