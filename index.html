@@ -132,7 +132,11 @@
     // prevSnake holds the snake's cells from before the last move; it is used
     // to interpolate positions while rendering. lastMoveTime marks when the
     // most recent logical move happened, and rafId is the animation-frame handle.
-    let snake, prevSnake, direction, nextDirection, food, score,
+    // directionQueue buffers up to two upcoming turns so quick, successive
+    // key presses (e.g. tapping a corner) all register instead of the
+    // earlier one being overwritten before the next move is applied.
+    const MAX_QUEUED_DIRECTIONS = 2;
+    let snake, prevSnake, direction, directionQueue, food, score,
         isGameOver, lastMoveTime, rafId;
 
     // Sets (or resets) all game state to start a fresh game
@@ -144,7 +148,7 @@
       ];
       prevSnake = snake.map(s => ({ x: s.x, y: s.y }));
       direction = { x: 1, y: 0 };
-      nextDirection = { x: 1, y: 0 };
+      directionQueue = [];
       score = 0;
       isGameOver = false;
 
@@ -198,7 +202,9 @@
     // Advances the game by one logical step: moves the snake, checks
     // collisions, and handles eating food.
     function step() {
-      direction = nextDirection;
+      if (directionQueue.length > 0) {
+        direction = directionQueue.shift();
+      }
 
       // Remember where every segment was so we can interpolate toward the new spot.
       prevSnake = snake.map(s => ({ x: s.x, y: s.y }));
@@ -308,25 +314,33 @@
       gameOverScreen.style.display = 'flex';
     }
 
-    // Handles arrow-key input, preventing the snake from reversing on itself
+    // Handles arrow-key input. Each valid press is queued (rather than
+    // overwriting a single pending direction) so rapid successive presses
+    // all take effect, and each is validated against the last *queued*
+    // direction so the snake can't be turned back on itself mid-buffer.
     document.addEventListener('keydown', (e) => {
+      let newDirection;
       switch (e.key) {
-        case 'ArrowUp':
-          if (direction.y === 0) nextDirection = { x: 0, y: -1 };
-          break;
-        case 'ArrowDown':
-          if (direction.y === 0) nextDirection = { x: 0, y: 1 };
-          break;
-        case 'ArrowLeft':
-          if (direction.x === 0) nextDirection = { x: -1, y: 0 };
-          break;
-        case 'ArrowRight':
-          if (direction.x === 0) nextDirection = { x: 1, y: 0 };
-          break;
+        case 'ArrowUp':    newDirection = { x: 0, y: -1 }; break;
+        case 'ArrowDown':  newDirection = { x: 0, y: 1 };  break;
+        case 'ArrowLeft':  newDirection = { x: -1, y: 0 }; break;
+        case 'ArrowRight': newDirection = { x: 1, y: 0 };  break;
         default:
           return;
       }
       e.preventDefault(); // stop page from scrolling with arrow keys
+
+      const reference = directionQueue.length > 0
+        ? directionQueue[directionQueue.length - 1]
+        : direction;
+
+      // Ignore no-op repeats and 180-degree reversals.
+      const isReversal = newDirection.x === -reference.x && newDirection.y === -reference.y;
+      const isSameAsReference = newDirection.x === reference.x && newDirection.y === reference.y;
+
+      if (!isReversal && !isSameAsReference && directionQueue.length < MAX_QUEUED_DIRECTIONS) {
+        directionQueue.push(newDirection);
+      }
     });
 
     restartBtn.addEventListener('click', initGame);
