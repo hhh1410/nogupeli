@@ -109,7 +109,7 @@
     </div>
   </div>
 
-  <div id="instructions">Use the arrow keys to move</div>
+  <div id="instructions">Use W A S D to move</div>
 
   <script>
     // ---- Configuration ----
@@ -314,21 +314,21 @@
       gameOverScreen.style.display = 'flex';
     }
 
-    // Handles arrow-key input. Each valid press is queued (rather than
+    // Handles WASD input. Each valid press is queued (rather than
     // overwriting a single pending direction) so rapid successive presses
     // all take effect, and each is validated against the last *queued*
     // direction so the snake can't be turned back on itself mid-buffer.
     document.addEventListener('keydown', (e) => {
       let newDirection;
-      switch (e.key) {
-        case 'ArrowUp':    newDirection = { x: 0, y: -1 }; break;
-        case 'ArrowDown':  newDirection = { x: 0, y: 1 };  break;
-        case 'ArrowLeft':  newDirection = { x: -1, y: 0 }; break;
-        case 'ArrowRight': newDirection = { x: 1, y: 0 };  break;
+      switch (e.key.toLowerCase()) {
+        case 'w': newDirection = { x: 0, y: -1 }; break;
+        case 's': newDirection = { x: 0, y: 1 };  break;
+        case 'a': newDirection = { x: -1, y: 0 }; break;
+        case 'd': newDirection = { x: 1, y: 0 };  break;
         default:
           return;
       }
-      e.preventDefault(); // stop page from scrolling with arrow keys
+      e.preventDefault(); // stop default browser behavior for these keys
 
       const reference = directionQueue.length > 0
         ? directionQueue[directionQueue.length - 1]
