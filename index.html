@@ -239,16 +239,65 @@
       ctx.fillStyle = '#ff5252';
       ctx.fillRect(food.x * GRID_SIZE, food.y * GRID_SIZE, GRID_SIZE - 1, GRID_SIZE - 1);
 
-      // Draw snake (head in a brighter shade), interpolating each segment
-      // between its previous cell and its current one.
+      // Draw snake (head gets a rounded smiley face), interpolating each
+      // segment between its previous cell and its current one.
       snake.forEach((segment, index) => {
         const from = prevSnake[index] || segment; // new tail segment has no prior spot
         const x = from.x + (segment.x - from.x) * alpha;
         const y = from.y + (segment.y - from.y) * alpha;
 
-        ctx.fillStyle = index === 0 ? '#81c784' : '#4caf50';
-        ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE - 1, GRID_SIZE - 1);
+        if (index === 0) {
+          drawHead(x, y);
+        } else {
+          ctx.fillStyle = '#4caf50';
+          ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE - 1, GRID_SIZE - 1);
+        }
       });
+    }
+
+    // Draws the snake's head as a rounded, smiling face oriented toward
+    // whichever way the snake is currently moving.
+    function drawHead(cellX, cellY) {
+      const size = GRID_SIZE - 1;
+      const centerX = cellX * GRID_SIZE + size / 2;
+      const centerY = cellY * GRID_SIZE + size / 2;
+      const radius = size / 2;
+
+      // Rotation angle so the face always looks the way the snake is heading.
+      const angle = Math.atan2(direction.y, direction.x);
+
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(angle);
+
+      // Rounded head
+      ctx.fillStyle = '#81c784';
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Eyes: two dots side by side (perpendicular to travel), set back
+      // slightly from the front so the mouth has room ahead of them.
+      const eyeOffsetX = radius * 0.05;
+      const eyeOffsetY = radius * 0.5;
+      const eyeRadius = radius * 0.2;
+
+      ctx.fillStyle = '#1e1e2f';
+      ctx.beginPath();
+      ctx.arc(eyeOffsetX, -eyeOffsetY, eyeRadius, 0, Math.PI * 2);
+      ctx.arc(eyeOffsetX, eyeOffsetY, eyeRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Smiling mouth: a small forward-facing curve, positioned ahead of
+      // the eyes (near the nose) so it doesn't overlap them.
+      ctx.strokeStyle = '#1e1e2f';
+      ctx.lineWidth = Math.max(1, radius * 0.15);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(radius * 0.35, 0, radius * 0.4, -Math.PI / 4, Math.PI / 4);
+      ctx.stroke();
+
+      ctx.restore();
     }
 
     // Stops the game loop and shows the game-over overlay
