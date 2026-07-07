@@ -95,7 +95,7 @@
 </head>
 <body>
 
-  <h1>Snake</h1>
+  <h1>nogupeli</h1>
   <div id="scoreboard">Score: <span id="score">0</span></div>
 
   <div id="game-wrapper">
@@ -241,9 +241,7 @@
     function draw(alpha) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw food
-      ctx.fillStyle = '#ff5252';
-      ctx.fillRect(food.x * GRID_SIZE, food.y * GRID_SIZE, GRID_SIZE - 1, GRID_SIZE - 1);
+      drawFood();
 
       // Draw snake (head gets a rounded smiley face), interpolating each
       // segment between its previous cell and its current one.
@@ -259,6 +257,46 @@
           ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE - 1, GRID_SIZE - 1);
         }
       });
+    }
+
+    // Draws the food as a pint of beer: an amber glass with foam on top
+    // and a handle on the side.
+    function drawFood() {
+      const size = GRID_SIZE - 1;
+      const px = food.x * GRID_SIZE;
+      const py = food.y * GRID_SIZE;
+
+      const glassLeft = px + size * 0.22;
+      const glassRight = px + size * 0.68;
+      const glassTop = py + size * 0.38;
+      const glassBottom = py + size * 0.88;
+      const glassWidth = glassRight - glassLeft;
+
+      // Handle, drawn first so the glass overlaps its inner edge
+      const handleCenterX = glassRight;
+      const handleCenterY = (glassTop + glassBottom) / 2;
+      const handleRadius = (glassBottom - glassTop) * 0.32;
+
+      ctx.strokeStyle = '#d99a2b';
+      ctx.lineWidth = Math.max(1, size * 0.14);
+      ctx.beginPath();
+      ctx.arc(handleCenterX, handleCenterY, handleRadius, -Math.PI / 2.2, Math.PI / 2.2);
+      ctx.stroke();
+
+      // Glass body (amber beer)
+      ctx.fillStyle = '#e8a52e';
+      ctx.fillRect(glassLeft, glassTop, glassWidth, glassBottom - glassTop);
+
+      // Glass outline
+      ctx.strokeStyle = '#fdf6e3';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(glassLeft, glassTop, glassWidth, glassBottom - glassTop);
+
+      // Foam on top
+      ctx.fillStyle = '#fffbea';
+      ctx.beginPath();
+      ctx.ellipse(glassLeft + glassWidth / 2, glassTop, glassWidth / 2, size * 0.14, 0, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     // Draws the snake's head as a rounded, smiling face oriented toward
