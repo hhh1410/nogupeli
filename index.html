@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Snake Game</title>
 <style>
   /* Reset and center everything on the page */
@@ -18,9 +18,12 @@
     align-items: center;
     justify-content: center;
     min-height: 100vh;
+    padding: 12px;
     background: #1e1e2f;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: #f0f0f0;
+    /* Stop mobile browsers from bouncing/scrolling while playing */
+    overscroll-behavior: none;
   }
 
   h1 {
@@ -33,9 +36,13 @@
     margin-bottom: 10px;
   }
 
-  /* Wrapper positions the game-over overlay directly on top of the canvas */
+  /* Wrapper positions the game-over overlay directly on top of the canvas.
+     It also caps the play area to the smaller of 400px or the viewport so
+     the square board always fits on a phone screen. */
   #game-wrapper {
     position: relative;
+    width: min(400px, 90vw);
+    max-width: 100%;
   }
 
   canvas {
@@ -43,6 +50,10 @@
     border: 4px solid #4caf50;
     border-radius: 6px;
     display: block;
+    width: 100%;      /* scale to the wrapper; internal resolution stays 400x400 */
+    height: auto;
+    aspect-ratio: 1 / 1;
+    touch-action: none; /* let our swipe handlers own touch gestures */
   }
 
   /* Game-over overlay is hidden until the game ends */
@@ -109,7 +120,7 @@
     </div>
   </div>
 
-  <div id="instructions">Use W A S D to move</div>
+  <div id="instructions">Use W A S D or swipe to move</div>
 
   <script>
     // ---- Configuration ----
@@ -448,22 +459,12 @@
       gameOverScreen.style.display = 'flex';
     }
 
-    // Handles WASD input. Each valid press is queued (rather than
-    // overwriting a single pending direction) so rapid successive presses
-    // all take effect, and each is validated against the last *queued*
-    // direction so the snake can't be turned back on itself mid-buffer.
-    document.addEventListener('keydown', (e) => {
-      let newDirection;
-      switch (e.key.toLowerCase()) {
-        case 'w': newDirection = { x: 0, y: -1 }; break;
-        case 's': newDirection = { x: 0, y: 1 };  break;
-        case 'a': newDirection = { x: -1, y: 0 }; break;
-        case 'd': newDirection = { x: 1, y: 0 };  break;
-        default:
-          return;
-      }
-      e.preventDefault(); // stop default browser behavior for these keys
-
+    // Queues a turn from any input source (keyboard or touch). Each valid
+    // direction is buffered rather than overwriting a single pending one so
+    // rapid successive inputs all take effect, and each is validated against
+    // the last *queued* direction so the snake can't be turned back on
+    // itself mid-buffer.
+    function queueDirection(newDirection) {
       const reference = directionQueue.length > 0
         ? directionQueue[directionQueue.length - 1]
         : direction;
@@ -475,7 +476,55 @@
       if (!isReversal && !isSameAsReference && directionQueue.length < MAX_QUEUED_DIRECTIONS) {
         directionQueue.push(newDirection);
       }
+    }
+
+    // Handles WASD keyboard input.
+    document.addEventListener('keydown', (e) => {
+      let newDirection;
+      switch (e.key.toLowerCase()) {
+        case 'w': newDirection = { x: 0, y: -1 }; break;
+        case 's': newDirection = { x: 0, y: 1 };  break;
+        case 'a': newDirection = { x: -1, y: 0 }; break;
+        case 'd': newDirection = { x: 1, y: 0 };  break;
+        default:
+          return;
+      }
+      e.preventDefault(); // stop default browser behavior for these keys
+      queueDirection(newDirection);
     });
+
+    // Handles swipe input for touch devices. A swipe that travels past a
+    // small threshold turns the snake toward whichever axis moved most.
+    const SWIPE_THRESHOLD = 20; // minimum px of travel to count as a swipe
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    canvas.addEventListener('touchstart', (e) => {
+      const touch = e.changedTouches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+      e.preventDefault(); // stop the page from scrolling / zooming
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault(); // keep the gesture from scrolling the page
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      const touch = e.changedTouches[0];
+      const dx = touch.clientX - touchStartX;
+      const dy = touch.clientY - touchStartY;
+
+      // Ignore taps and tiny drags.
+      if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) return;
+
+      if (Math.abs(dx) > Math.abs(dy)) {
+        queueDirection({ x: dx > 0 ? 1 : -1, y: 0 }); // horizontal swipe
+      } else {
+        queueDirection({ x: 0, y: dy > 0 ? 1 : -1 }); // vertical swipe
+      }
+      e.preventDefault();
+    }, { passive: false });
 
     restartBtn.addEventListener('click', initGame);
 
