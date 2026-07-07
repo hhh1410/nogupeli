@@ -57,21 +57,28 @@
   }
 
   /* Game-over "cutscene" overlay is hidden until the game ends. It shows a
-     photo backdrop with a red "sammuit" headline and a restart button. */
+     photo backdrop with a red "sammuit" headline and a restart button.
+     Fixed positioning takes it out of the (small) game-wrapper box so the
+     photo fills the entire screen instead of just the canvas area. */
   #game-over-screen {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    position: fixed;
+    inset: 0;
     display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
     overflow: hidden;
+    z-index: 10;
     /* The photo is set on ::before so a dark scrim can sit on top of it
        while the text/button stay fully legible above everything. */
+  }
+
+  /* While the cutscene is showing, hide everything else on the page so the
+     photo is the only thing visible behind the "sammuit" overlay. */
+  body.game-over > h1,
+  body.game-over > #scoreboard,
+  body.game-over > #instructions {
+    display: none;
   }
 
   /* Photo backdrop (its image is supplied via .has-photo, added in JS once
@@ -227,6 +234,7 @@
       directionQueue = [];
       score = 0;
       isGameOver = false;
+      document.body.classList.remove('game-over');
 
       // Randomize how many drinks it takes to pass out this round.
       passOutLimit = PASS_OUT_MIN
@@ -566,6 +574,7 @@
       applyDrunkEffect(0); // remove blur/sway so the cutscene is crisp
       finalScoreEl.textContent = `alkoholiannokset: ${score}`;
       gameOverScreen.style.display = 'flex';
+      document.body.classList.add('game-over');
     }
 
     // Queues a turn from any input source (keyboard or touch). Each valid
