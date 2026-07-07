@@ -493,9 +493,13 @@
       queueDirection(newDirection);
     });
 
-    // Handles swipe input for touch devices. A swipe that travels past a
-    // small threshold turns the snake toward whichever axis moved most.
-    const SWIPE_THRESHOLD = 20; // minimum px of travel to count as a swipe
+    // Handles swipe input for touch devices. Direction is detected during
+    // the drag itself (touchmove), the instant it crosses a small threshold,
+    // rather than waiting for the finger to lift — this makes the snake
+    // react immediately instead of after the whole gesture completes. The
+    // reference point resets after each detected swipe so a single
+    // continuous drag can trigger several turns in a row.
+    const SWIPE_THRESHOLD = 12; // minimum px of travel to register a turn
     let touchStartX = 0;
     let touchStartY = 0;
 
@@ -507,22 +511,25 @@
     }, { passive: false });
 
     canvas.addEventListener('touchmove', (e) => {
-      e.preventDefault(); // keep the gesture from scrolling the page
-    }, { passive: false });
-
-    canvas.addEventListener('touchend', (e) => {
       const touch = e.changedTouches[0];
       const dx = touch.clientX - touchStartX;
       const dy = touch.clientY - touchStartY;
 
-      // Ignore taps and tiny drags.
-      if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) return;
-
-      if (Math.abs(dx) > Math.abs(dy)) {
-        queueDirection({ x: dx > 0 ? 1 : -1, y: 0 }); // horizontal swipe
-      } else {
-        queueDirection({ x: 0, y: dy > 0 ? 1 : -1 }); // vertical swipe
+      if (Math.abs(dx) >= SWIPE_THRESHOLD || Math.abs(dy) >= SWIPE_THRESHOLD) {
+        if (Math.abs(dx) > Math.abs(dy)) {
+          queueDirection({ x: dx > 0 ? 1 : -1, y: 0 }); // horizontal swipe
+        } else {
+          queueDirection({ x: 0, y: dy > 0 ? 1 : -1 }); // vertical swipe
+        }
+        // Re-anchor so further movement in this same drag can turn again.
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
       }
+
+      e.preventDefault(); // keep the gesture from scrolling the page
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
       e.preventDefault();
     }, { passive: false });
 
